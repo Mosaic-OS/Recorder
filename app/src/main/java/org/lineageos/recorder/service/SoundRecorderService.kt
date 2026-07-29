@@ -15,8 +15,6 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.PackageManager
-import android.net.Uri
-import android.os.Build
 import android.os.Environment
 import android.os.Handler
 import android.os.IBinder
@@ -30,6 +28,7 @@ import android.util.Log
 import androidx.annotation.GuardedBy
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
+import androidx.core.net.toUri
 import androidx.lifecycle.LifecycleService
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.launch
@@ -299,19 +298,16 @@ class SoundRecorderService : LifecycleService() {
         fileName: String,
         extension: String
     ): File? {
-        val recordingDir = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+        val recordingDir =
             getExternalFilesDir(Environment.DIRECTORY_RECORDINGS)
-        } else {
-            getExternalFilesDir(Environment.DIRECTORY_MUSIC)
-                ?.resolve(LEGACY_MUSIC_DIR)
-        } ?: throw Exception("Null external files dir")
+                ?: throw Exception("Null external files dir")
 
         val file = recordingDir.resolve(String.format(fileName, extension))
 
         if (!recordingDir.exists()) {
             try {
                 recordingDir.mkdirs()
-            } catch (e: IOException) {
+            } catch (_: IOException) {
                 Log.e(TAG, "Failed to create parent directories for output")
                 return null
             }
@@ -328,7 +324,7 @@ class SoundRecorderService : LifecycleService() {
 
     private fun startElapsedTimeTimer() {
         elapsedTimeTimer = Timer().apply {
-            scheduleAtFixedRate(object : TimerTask() {
+            schedule(object : TimerTask() {
                 override fun run() {
                     val newElapsedTime = ++elapsedTime
                     notifyElapsedTime(newElapsedTime)
@@ -390,7 +386,7 @@ class SoundRecorderService : LifecycleService() {
             if (currentStatus != UiStatus.READY) {
                 client.send(handler.obtainMessage(MSG_TIME_ELAPSED, elapsedTime))
             }
-        } catch (ignored: RemoteException) {
+        } catch (_: RemoteException) {
             // Already gone
         }
     }
@@ -490,7 +486,7 @@ class SoundRecorderService : LifecycleService() {
     }
 
     private fun createShareNotification(uri: String): Notification? {
-        val fileUri = Uri.parse(uri)
+        val fileUri = uri.toUri()
 
         preferencesManager.lastItemUri = fileUri
 
@@ -561,10 +557,9 @@ class SoundRecorderService : LifecycleService() {
         service: SoundRecorderService,
         private val client: RecorderClient
     ) : DeathRecipient {
-        private val serviceRef: WeakReference<SoundRecorderService>
+        private val serviceRef: WeakReference<SoundRecorderService> = WeakReference(service)
 
         init {
-            serviceRef = WeakReference(service)
             client.deathRecipient = this
         }
 

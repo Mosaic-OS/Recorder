@@ -7,7 +7,6 @@ package org.lineageos.recorder.repository
 
 import android.content.ContentValues
 import android.content.Context
-import android.os.Build
 import android.provider.MediaStore
 import android.util.Log
 import kotlinx.coroutines.Dispatchers
@@ -24,8 +23,7 @@ object RecordingsRepository {
 
     private const val ALBUM = "Sound records"
 
-    private const val PATH = "Recordings/${ALBUM}"
-    private const val PATH_LEGACY = "Music/${ALBUM}"
+    private const val PATH = "Music/${ALBUM}"
 
     fun recordings(context: Context) = RecordingsFlow(context).flowData()
 
@@ -58,7 +56,7 @@ object RecordingsRepository {
                 contentResolver.update(uri, values, null, null)
                 try {
                     file.delete()
-                } catch (e: IOException) {
+                } catch (_: IOException) {
                     Log.w(LOG_TAG, "Failed to delete tmp file")
                 }
 
@@ -82,12 +80,9 @@ object RecordingsRepository {
         put(MediaStore.Audio.Media.DATE_ADDED, System.currentTimeMillis() / 1000L)
         put(
             MediaStore.Audio.Media.RELATIVE_PATH,
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                PATH
-            } else {
-                PATH_LEGACY
-            }
+            PATH
         )
+        put(MediaStore.Audio.Media.IS_MUSIC, 1)
         put(MediaStore.Audio.Media.IS_PENDING, 1)
     }
 }

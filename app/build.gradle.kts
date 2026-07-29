@@ -8,27 +8,28 @@ import org.lineageos.generatebp.GenerateBpPluginExtension
 import org.lineageos.generatebp.models.Module
 
 plugins {
-    id("com.android.application")
-    id("kotlin-android")
-    id("org.lineageos.generatebp")
+    alias(libs.plugins.android.application)
+    alias(libs.plugins.kotlin.android)
+    alias(libs.plugins.lineageos.generatebp)
 }
 
 android {
-    compileSdk = 36
+    compileSdk = 37
     namespace = "org.lineageos.recorder"
 
     defaultConfig {
         applicationId = "org.lineageos.recorder"
         minSdk = 31
-        targetSdk = 36
+        targetSdk = 37
         versionCode = 1
-        versionName = "1.1"
+        versionName = "1.2"
     }
 
     buildTypes {
         getByName("release") {
             // Enables code shrinking, obfuscation, and optimization.
             isMinifyEnabled = true
+            isShrinkResources = true
 
             // Includes the default ProGuard rules files.
             setProguardFiles(
@@ -45,35 +46,35 @@ android {
     }
 
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_1_8
-        targetCompatibility = JavaVersion.VERSION_1_8
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
     }
 
     kotlin {
         compilerOptions {
-            jvmTarget.set(JvmTarget.JVM_1_8)
+            jvmTarget.set(JvmTarget.JVM_17)
         }
     }
 }
 
 dependencies {
     // Align versions of all Kotlin components
-    implementation(platform("org.jetbrains.kotlin:kotlin-bom:2.1.10"))
+    implementation(platform(libs.kotlin.bom))
 
-    implementation("androidx.activity:activity-ktx:1.7.2")
-    implementation("androidx.appcompat:appcompat:1.6.1")
-    implementation("androidx.core:core-ktx:1.12.0")
-    implementation("com.google.android.material:material:1.9.0")
-    implementation("androidx.constraintlayout:constraintlayout:2.1.4")
+    implementation(libs.androidx.activity.ktx)
+    implementation(libs.androidx.appcompat)
+    implementation(libs.androidx.core.ktx)
+    implementation(libs.material)
+    implementation(libs.androidx.constraintlayout)
 
     // Lifecycle
-    implementation("androidx.lifecycle:lifecycle-livedata-ktx:2.7.0")
-    implementation("androidx.lifecycle:lifecycle-service:2.7.0")
-    implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.7.0")
+    implementation(libs.androidx.lifecycle.livedata.ktx)
+    implementation(libs.androidx.lifecycle.service)
+    implementation(libs.androidx.lifecycle.viewmodel.ktx)
 
     // Recyclerview
-    implementation("androidx.recyclerview:recyclerview:1.3.2")
-    implementation("androidx.recyclerview:recyclerview-selection:1.1.0")
+    implementation(libs.androidx.recyclerview)
+    implementation(libs.androidx.recyclerview.selection)
 }
 
 configure<GenerateBpPluginExtension> {

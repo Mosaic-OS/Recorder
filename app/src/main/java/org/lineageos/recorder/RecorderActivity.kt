@@ -38,7 +38,9 @@ import androidx.core.view.updatePadding
 import androidx.lifecycle.lifecycleScope
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.floatingactionbutton.FloatingActionButton
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.lineageos.recorder.models.UiStatus
 import org.lineageos.recorder.service.SoundRecorderService
 import org.lineageos.recorder.ui.WaveFormView
@@ -111,7 +113,7 @@ class RecorderActivity : AppCompatActivity(R.layout.activity_main) {
                 )
                 msg.replyTo = messenger
                 messengerService.send(msg)
-            } catch (e: RemoteException) {
+            } catch (_: RemoteException) {
                 // In this case the service has crashed before we could even
                 // do anything with it; we can count on soon being
                 // disconnected (and then reconnected if it can be restarted)
@@ -227,11 +229,15 @@ class RecorderActivity : AppCompatActivity(R.layout.activity_main) {
 
         if (uiStatus == UiStatus.READY) {
             // Start
-            startService(
-                Intent(this, SoundRecorderService::class.java)
-                    .setAction(SoundRecorderService.ACTION_START)
-                    .putExtra(SoundRecorderService.EXTRA_FILE_NAME, newRecordFileName)
-            )
+            lifecycleScope.launch {
+                // Resolving the location name hits the network, keep it off the main thread.
+                val fileName = withContext(Dispatchers.IO) { newRecordFileName }
+                startService(
+                    Intent(this@RecorderActivity, SoundRecorderService::class.java)
+                        .setAction(SoundRecorderService.ACTION_START)
+                        .putExtra(SoundRecorderService.EXTRA_FILE_NAME, fileName)
+                )
+            }
         } else {
             // Stop
             startService(
@@ -305,7 +311,7 @@ class RecorderActivity : AppCompatActivity(R.layout.activity_main) {
                 )
                 msg.replyTo = messenger
                 it.send(msg)
-            } catch (e: RemoteException) {
+            } catch (_: RemoteException) {
                 // There is nothing special we need to do if the service
                 // has crashed.
             }
@@ -384,11 +390,11 @@ class RecorderActivity : AppCompatActivity(R.layout.activity_main) {
             return String.format(
                 FILE_NAME_BASE, tag,
                 formatter.format(now.truncatedTo(ChronoUnit.SECONDS))
-            ) + ".%1\$s"
+            ) + $$".%1$s"
         }
 
     companion object {
-        private const val FILE_NAME_BASE = "%1\$s (%2\$s)"
+        private const val FILE_NAME_BASE = $$"%1$s (%2$s)"
         private const val FILE_NAME_FALLBACK = "Sound record"
     }
 }

@@ -38,7 +38,7 @@ class GoodQualityRecorder(private val context: Context) : SoundRecording {
         // needed to prevent app crash when starting and stopping too fast
         try {
             it.stop()
-        } catch (rte: RuntimeException) {
+        } catch (_: RuntimeException) {
             return false
         } finally {
             it.release()
@@ -76,5 +76,5 @@ class GoodQualityRecorder(private val context: Context) : SoundRecording {
 
     override val fileExtension = "m4a"
 
-    override val mimeType = "audio/mp4a-latm"
+    override val mimeType = "audio/mp4"
 }

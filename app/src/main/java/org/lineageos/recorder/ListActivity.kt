@@ -223,12 +223,16 @@ class ListActivity : AppCompatActivity() {
     }
 
     fun onPlay(recording: Recording) {
-        startActivity(RecordIntentHelper.getOpenIntent(recording.uri, TYPE_AUDIO))
+        startActivity(RecordIntentHelper.getOpenIntent(recording.uri, mimeTypeOf(recording)))
     }
 
     fun onShare(recording: Recording) {
-        startActivity(RecordIntentHelper.getShareIntent(recording.uri, TYPE_AUDIO))
+        startActivity(RecordIntentHelper.getShareIntent(recording.uri, mimeTypeOf(recording)))
     }
+
+    // Players match concrete types, a wildcard would also offer apps that can't handle audio.
+    private fun mimeTypeOf(recording: Recording) =
+        contentResolver.getType(recording.uri) ?: TYPE_AUDIO
 
     fun onDelete(recording: Recording) {
         MaterialAlertDialogBuilder(this)
@@ -303,7 +307,7 @@ class ListActivity : AppCompatActivity() {
     override fun onPrepareOptionsMenu(menu: Menu): Boolean {
         val deleteAllItem = menu.findItem(R.id.action_delete_all)
         val hasItems = recordingsAdapter.itemCount > 0
-        deleteAllItem.setEnabled(hasItems)
+        deleteAllItem.isEnabled = hasItems
         return true
     }
 

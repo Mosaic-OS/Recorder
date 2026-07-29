@@ -9,21 +9,28 @@ import android.Manifest.permission
 import android.media.AudioFormat
 import android.media.AudioRecord
 import android.media.MediaRecorder
+import android.os.Process
 import android.util.Log
 import androidx.annotation.RequiresPermission
 import org.lineageos.recorder.utils.PcmConverter
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
-import java.nio.ByteBuffer
-import java.nio.ByteOrder
 import kotlin.math.abs
 
 class HighQualityRecorder : SoundRecording {
     private var record: AudioRecord? = null
     private var file: File? = null
+    private var recordingThread: Thread? = null
+
+    @Volatile
     private var maxAmplitude = 0
+
+    @Volatile
     private var isRecording = false
+
+    @Volatile
+    private var isPaused = false
 
     @RequiresPermission(permission.RECORD_AUDIO)
     override fun startRecording(file: File) {
@@ -42,20 +49,23 @@ class HighQualityRecorder : SoundRecording {
         }
 
         isRecording = true
+        isPaused = false
 
-        Thread { recordingThreadImpl() }.start()
+        recordingThread = Thread { recordingThreadImpl() }.apply { start() }
     }
 
     override fun stopRecording(): Boolean {
-        if (record == null) {
-            return false
-        }
+        val record = record ?: return false
 
         isRecording = false
 
-        record?.stop()
-        record?.release()
-        record = null
+        // Let the recording thread finish writing before the buffer is released.
+        recordingThread?.join(THREAD_JOIN_TIMEOUT_MS)
+        recordingThread = null
+
+        record.stop()
+        record.release()
+        this.record = null
 
         return true
     }
@@ -65,6 +75,7 @@ class HighQualityRecorder : SoundRecording {
             return false
         }
 
+        isPaused = true
         record?.stop()
 
         return true
@@ -75,6 +86,7 @@ class HighQualityRecorder : SoundRecording {
             return false
         }
         record?.startRecording()
+        isPaused = false
         return true
     }
 
@@ -84,24 +96,37 @@ class HighQualityRecorder : SoundRecording {
         }
 
     private fun recordingThreadImpl() {
+        Process.setThreadPriority(Process.THREAD_PRIORITY_URGENT_AUDIO)
+
         try {
             FileOutputStream(file).use { out ->
                 PcmConverter.writeWavHeader(out, SAMPLING_RATE, CHANNEL_IN)
 
                 val buffer = ByteArray(BUFFER_SIZE)
                 while (isRecording) {
+                    if (isPaused) {
+                        // Reading a stopped AudioRecord returns immediately, so idle instead.
+                        Thread.sleep(PAUSE_POLL_INTERVAL_MS)
+                        continue
+                    }
+
                     val read = record?.read(buffer, 0, BUFFER_SIZE) ?: 0
                     if (read > 0) {
                         out.write(buffer, 0, read)
 
-                        maxAmplitude = 0
-                        for (i in 0 until read step 2) {
-                            val sample = ByteBuffer.wrap(buffer, i, 2)
-                                .order(ByteOrder.LITTLE_ENDIAN)
-                                .short
-                                .toInt()
-                            maxAmplitude = maxOf(maxAmplitude, abs(sample))
+                        var max = 0
+                        var i = 0
+                        while (i + 1 < read) {
+                            // Little endian 16 bit PCM, decoded without allocating.
+                            val sample = (buffer[i + 1].toInt() shl 8) or
+                                    (buffer[i].toInt() and 0xFF)
+                            val amplitude = abs(sample)
+                            if (amplitude > max) {
+                                max = amplitude
+                            }
+                            i += 2
                         }
+                        maxAmplitude = max
                     }
                 }
 
@@ -109,6 +134,8 @@ class HighQualityRecorder : SoundRecording {
             }
         } catch (e: IOException) {
             Log.e(TAG, "Can't find output file", e)
+        } catch (_: InterruptedException) {
+            Thread.currentThread().interrupt()
         }
     }
 
@@ -122,6 +149,8 @@ class HighQualityRecorder : SoundRecording {
         private const val SAMPLING_RATE = 44100
         private const val CHANNEL_IN = AudioFormat.CHANNEL_IN_STEREO
         private const val FORMAT = AudioFormat.ENCODING_PCM_16BIT
+        private const val PAUSE_POLL_INTERVAL_MS = 50L
+        private const val THREAD_JOIN_TIMEOUT_MS = 1000L
         private val BUFFER_SIZE = AudioRecord.getMinBufferSize(
             SAMPLING_RATE,
             CHANNEL_IN,

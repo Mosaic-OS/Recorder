@@ -56,7 +56,7 @@ class LocationHelper(private val context: Context) {
                 ) ?: locationManager?.getLastKnownLocation(
                     LocationManager.PASSIVE_PROVIDER
                 )
-            } catch (e: SecurityException) {
+            } catch (_: SecurityException) {
                 null
             }
 
